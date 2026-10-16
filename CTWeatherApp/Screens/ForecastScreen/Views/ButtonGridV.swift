@@ -33,7 +33,7 @@ struct ButtonGridV: View {
             // Current Location Button
             Button(action: { action(nil) }) {
                 Image(systemName: "location.fill")
-                    .foregroundColor(.white)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: 44, maxHeight: 44)
                     .background(Circle().fill(.accent))
             }

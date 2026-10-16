@@ -8,21 +8,28 @@
 import SwiftUI
 
 extension ForecastScreenV {
+    @MainActor
     @Observable
-    class ForecastScreenVM {
+    final class ForecastScreenVM {
 
         // MARK: - Local variables
 
-        var weatherDataProvider: WeatherDataProvider = WeatherDataProvider()
-        var locationManager: LocationManager?
+        let weatherDataProvider = WeatherDataProvider()
+        private(set) var locationManager: LocationManager?
 
         // MARK: - Initializer
 
         init() {
-            locationManager = LocationManager(selectedLocation: Binding(
-                get: { self.weatherDataProvider.selectedLocation },
-                set: { self.weatherDataProvider.selectedLocation = $0 }
-            ))
+            let provider = weatherDataProvider
+            // weak capture: no retain cycle between provider and location manager
+            locationManager = LocationManager(
+                onLocation: { [weak provider] location in
+                    provider?.selectedLocation = location
+                },
+                onError: { [weak provider] in
+                    provider?.handleError(.location)
+                }
+            )
 
             loadData()
         }
@@ -47,11 +54,14 @@ extension ForecastScreenV {
             dayTemperatures != nil
         }
 
-        var showAlert: Binding<Bool> {
-            Binding(
-                get: { self.weatherDataProvider.showAlert },
-                set: { self.weatherDataProvider.showAlert = $0 }
-            )
+        var selectedDate: Date? {
+            get { weatherDataProvider.selectedDate }
+            set { weatherDataProvider.selectedDate = newValue }
+        }
+
+        var showAlert: Bool {
+            get { weatherDataProvider.showAlert }
+            set { weatherDataProvider.showAlert = newValue }
         }
 
         func setNewLocation(_ newLocation: LocationM?) {

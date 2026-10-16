@@ -8,18 +8,24 @@
 import SwiftUI
 import OpenMeteoSdk
 
+/// Kinds of errors shown to the user
+enum WeatherError {
+    case location
+    case api
+    case unknown
+}
+
 /// Provided weather data for view and read it from API on selcted location
+@MainActor
 @Observable
 final class WeatherDataProvider {
 
     // MARK: - Local variables
 
     /// API Data store
-    var dailyData: DailyDataM
+    var dailyData = DailyDataM()
     /// Selected Date in Calendar
     var selectedDate: Date?
-    /// Error notification observer
-    var errorNotification: NSObjectProtocol?
     /// Error message for Alert
     var errorInfo: String?
     /// Show Error Alert object
@@ -33,80 +39,65 @@ final class WeatherDataProvider {
     }
     /// Currently selected Predefined location or Current location
     @ObservationIgnored
-    var selectedLocation: LocationM {
+    var selectedLocation: LocationM = PredefinedLocations.prague.instance {
         didSet {
             // With new location load data
             loadWeatherData()
         }
     }
 
-
-    // MARK: - Initializer
-
-    init() {
-        // when start Prague is default location
-        selectedLocation = PredefinedLocations.prague.instance
-        dailyData = DailyDataM()
-
-        // Create Error observer
-        errorNotification = NotificationCenter.default
-            .addObserver(
-                forName: NSNotification.Name("Error"),
-                object: nil,
-                queue: .main,
-                using: { [unowned self] notification in
-                    self.handleError(notification)
-                })
-    }
-
-    deinit {
-        if let errorNotification {
-            // Erase Error observer
-            NotificationCenter.default.removeObserver(errorNotification)
-        }
-    }
+    /// Running request, cancelled when a newer one starts
+    @ObservationIgnored
+    private var loadTask: Task<Void, Never>?
 
     // MARK: - Data
 
     /// Contact API for weather data for selected location
-    internal func loadWeatherData() {
-        let restApiClient = RestApiClient()
-        Task {
-            // Ask for data
-            guard let response = await restApiClient.getWeatherData(for: selectedLocation) else { return }
-            // Have Daily part?
-            guard let daily = response.first?.daily else { return }
-            // Read raw data
-            let weatherData = WeatherDataM(
-                daily: .init(
-                    time: daily.getDateTime(),
-                    temperature2mMax: daily.variables(at: 0)!.values,
-                    temperature2mMin: daily.variables(at: 1)!.values
+    func loadWeatherData() {
+        loadTask?.cancel()
+        let location = selectedLocation
+        loadTask = Task {
+            do {
+                // Ask for data
+                let response = try await RestApiClient().getWeatherData(for: location)
+                guard !Task.isCancelled else { return }
+                // Have Daily part?
+                guard let daily = response.first?.daily,
+                      let maxValues = daily.variables(at: 0)?.values,
+                      let minValues = daily.variables(at: 1)?.values else { return }
+                // Read raw data
+                let weatherData = WeatherDataM(
+                    daily: .init(
+                        time: daily.getDateTime(),
+                        temperature2mMax: maxValues,
+                        temperature2mMin: minValues
+                    )
                 )
-            )
-            // Transformation to View Model
-            var newDayData: [DayDataM] = .init()
-            for (i, date) in weatherData.daily.time.enumerated() {
-                newDayData.append(
+                // Transformation to View Model
+                let newDayData = weatherData.daily.time.enumerated().map { i, date in
                     DayDataM(
                         date: date,
                         temperature2mMax: weatherData.daily.temperature2mMax[i],
                         temperature2mMin: weatherData.daily.temperature2mMin[i]
                     )
-                )
-            }
+                }
 
-            // Set selected date from new set of data
-            if let selectedDate, let dataForSameDay = newDayData.first(where: {
-                Calendar.current.isDate(selectedDate, equalTo: $0.date, toGranularity: .day)
-            }) {
-                self.selectedDate = dataForSameDay.date
-            } else {
-                // Set first date from data
-                selectedDate = newDayData.first?.date
+                // Set selected date from new set of data
+                if let selectedDate, let dataForSameDay = newDayData.first(where: {
+                    Calendar.current.isDate(selectedDate, equalTo: $0.date, toGranularity: .day)
+                }) {
+                    self.selectedDate = dataForSameDay.date
+                } else {
+                    // Set first date from data
+                    selectedDate = newDayData.first?.date
+                }
+                // Store data to show
+                dailyData.data = newDayData
+            } catch is CancellationError {
+                return
+            } catch {
+                handleError(.api)
             }
-            // Store data to show
-            dailyData.data = newDayData
         }
     }
 
@@ -126,16 +117,13 @@ final class WeatherDataProvider {
     // MARK: - Error handling
 
     /// Processing Error state from any part of code
-    func handleError(_ notification: Notification) {
-        guard let userInfo = notification.userInfo else { return }
-        guard let type = userInfo["type"] as? String else { return }
-
-        switch type {
-        case "location":
+    func handleError(_ error: WeatherError) {
+        switch error {
+        case .location:
             errorInfo = String(localized: .sErrorLocation)
-        case "API":
+        case .api:
             errorInfo = String(localized: .sErrorAPI)
-        default:
+        case .unknown:
             errorInfo = String(localized: .sErrorDefault)
         }
         showAlert = true

@@ -14,7 +14,7 @@ struct ForecastScreenV: View {
     // MARK: - Local variables
 
     /// view model
-    @Bindable var vm: ForecastScreenVM = ForecastScreenVM()
+    @State private var vm = ForecastScreenVM()
 
     // MARK: - Body particles
 
@@ -23,7 +23,7 @@ struct ForecastScreenV: View {
             // Calendar to select date
             HorizontalCalendarV(
                 calendarData: vm.calendarData,
-                selectedDate: $vm.weatherDataProvider.selectedDate
+                selectedDate: $vm.selectedDate
             )
             .frame(maxHeight: 65)
 
@@ -38,13 +38,11 @@ struct ForecastScreenV: View {
             }
         }
         .padding(.horizontal)
-        .alert(isPresented: vm.showAlert) {
-            // Show message when Error happened
-            Alert(
-                title: Text(String(localized: .sImportantMessage)).foregroundStyle(.accent),
-                message: Text(vm.weatherDataProvider.errorInfo ?? String(localized: .sErrorDefault)),
-                dismissButton: .default(Text(String(localized: .sGotIt)))
-            )
+        // Show message when Error happened
+        .alert(Text(.sImportantMessage), isPresented: $vm.showAlert) {
+            Button(.sGotIt) {}
+        } message: {
+            Text(vm.weatherDataProvider.errorInfo ?? String(localized: .sErrorDefault))
         }
     }
 }

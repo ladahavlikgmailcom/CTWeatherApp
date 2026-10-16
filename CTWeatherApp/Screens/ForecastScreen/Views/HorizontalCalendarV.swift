@@ -64,10 +64,10 @@ struct HorizontalCalendarV: View {
         VStack(alignment: .center, spacing: 4) {
             Text(date.takeDayName())
                 .font(.caption)
-                .foregroundColor(foregroundColor(selectedDate == date))
+                .foregroundStyle(foregroundColor(selectedDate == date))
             Text(date.takeDayNumber())
                 .font(.headline)
-                .foregroundColor(foregroundColor(selectedDate == date))
+                .foregroundStyle(foregroundColor(selectedDate == date))
         }
         .frame(width: itemSize, height: itemSize)
     }

@@ -5,23 +5,30 @@
 //  Created by [ laďa ] HAVLÍK on 26.07.2025.
 //
 
-import SwiftUI
+import Foundation
 import CoreLocation
 
 /// When you need Current Location ask for it.
+@MainActor
 final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     // MARK: - Local variables
 
     /// Location Manager
     private let manager = CLLocationManager()
-    /// Store founded location
-    @Binding var selectedLocation: LocationM
+    /// Called with founded location
+    private let onLocation: @MainActor (LocationM) -> Void
+    /// Called when location did not work
+    private let onError: @MainActor () -> Void
 
     // MARK: - Initializer
 
-    init(selectedLocation: Binding<LocationM>) {
-        self._selectedLocation = selectedLocation
+    init(
+        onLocation: @escaping @MainActor (LocationM) -> Void,
+        onError: @escaping @MainActor () -> Void
+    ) {
+        self.onLocation = onLocation
+        self.onError = onError
 
         super.init()
 
@@ -40,19 +47,19 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     /// Take location from manager
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let coordinates = locations.first?.coordinate else {
-            manager.stopUpdatingLocation()
-            return
-        }
-
-        selectedLocation = .init(label: String(localized: .sCurrentPosition), coordinates: coordinates)
-
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         manager.stopUpdatingLocation()
+        guard let coordinates = locations.first?.coordinate else { return }
+
+        Task { @MainActor [weak self] in
+            self?.onLocation(.init(label: String(localized: .sCurrentPosition), coordinates: coordinates))
+        }
     }
 
     /// When location did not work well
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: any Error) {
-        NotificationCenter.default.post(name: NSNotification.Name("Error"), object: nil, userInfo: ["type" : "location"])
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: any Error) {
+        Task { @MainActor [weak self] in
+            self?.onError()
+        }
     }
 }
