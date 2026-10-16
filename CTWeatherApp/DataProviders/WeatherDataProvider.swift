@@ -65,20 +65,12 @@ final class WeatherDataProvider {
                 guard let daily = response.first?.daily,
                       let maxValues = daily.variables(at: 0)?.values,
                       let minValues = daily.variables(at: 1)?.values else { return }
-                // Read raw data
-                let weatherData = WeatherDataM(
-                    daily: .init(
-                        time: daily.getDateTime(),
-                        temperature2mMax: maxValues,
-                        temperature2mMin: minValues
-                    )
-                )
                 // Transformation to View Model
-                let newDayData = weatherData.daily.time.enumerated().map { i, date in
+                let newDayData = daily.getDateTime().enumerated().map { i, date in
                     DayDataM(
                         date: date,
-                        temperature2mMax: weatherData.daily.temperature2mMax[i],
-                        temperature2mMin: weatherData.daily.temperature2mMin[i]
+                        temperature2mMax: maxValues[i],
+                        temperature2mMin: minValues[i]
                     )
                 }
 
