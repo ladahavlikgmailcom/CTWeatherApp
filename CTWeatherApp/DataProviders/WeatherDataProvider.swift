@@ -66,11 +66,12 @@ final class WeatherDataProvider {
                       let maxValues = daily.variables(at: 0)?.values,
                       let minValues = daily.variables(at: 1)?.values else { return }
                 // Transformation to View Model
-                let newDayData = daily.getDateTime().enumerated().map { i, date in
+                // zip stops at the shortest sequence, so mismatched array lengths cannot crash
+                let newDayData = zip(daily.getDateTime(), zip(maxValues, minValues)).map { date, temperatures in
                     DayDataM(
                         date: date,
-                        temperature2mMax: maxValues[i],
-                        temperature2mMin: minValues[i]
+                        temperature2mMax: temperatures.0,
+                        temperature2mMin: temperatures.1
                     )
                 }
 
