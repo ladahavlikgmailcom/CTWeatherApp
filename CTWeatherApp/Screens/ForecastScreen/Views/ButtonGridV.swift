@@ -19,7 +19,7 @@ struct ButtonGridV: View {
 
     var body: some View {
         LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(minimum: 10, maximum: 200)), count: 2),
+            columns: [GridItem(.adaptive(minimum: 120, maximum: 200))],
             spacing: 16
         ) {
             // Predefined Buttons

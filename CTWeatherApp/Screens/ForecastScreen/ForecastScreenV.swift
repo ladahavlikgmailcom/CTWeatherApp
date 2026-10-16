@@ -19,25 +19,29 @@ struct ForecastScreenV: View {
     // MARK: - Body particles
 
     var body: some View {
-        VStack {
-            // Calendar to select date
-            HorizontalCalendarV(
-                calendarData: vm.calendarData,
-                selectedDate: $vm.selectedDate
-            )
-            .frame(maxHeight: 65)
+        // Scrollable, so content stays reachable in small windows and at large text sizes
+        ScrollView {
+            VStack {
+                // Calendar to select date
+                HorizontalCalendarV(
+                    calendarData: vm.calendarData,
+                    selectedDate: $vm.selectedDate
+                )
+                // fixed height: GeometryReader inside a ScrollView has no height proposal
+                .frame(height: 65)
 
-            // Show max and min temperature for selected day
-            TemperatureV(dayTemperatures: vm.dayTemperatures)
+                // Show max and min temperature for selected day
+                TemperatureV(dayTemperatures: vm.dayTemperatures)
 
-            Divider().padding(.bottom)
+                Divider().padding(.bottom)
 
-            // Buttons for predefined locations
-            ButtonGridV { location in
-                vm.setNewLocation(location)
+                // Buttons for predefined locations
+                ButtonGridV { location in
+                    vm.setNewLocation(location)
+                }
             }
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
         // Show message when Error happened
         .alert(Text(.sImportantMessage), isPresented: $vm.showAlert) {
             Button(.sGotIt) {}
